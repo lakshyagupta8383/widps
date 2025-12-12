@@ -6,7 +6,7 @@ static string escape_json(const string &s)
 {
     string out;
     out.reserve(s.size());
-    // converting all the special char from cpp string to valid json escape seq
+
     for (char c : s)
     {
         if (c == '\\')
