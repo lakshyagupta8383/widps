@@ -14,7 +14,7 @@
 #include "http_client.hpp"
 
 using namespace std;
-usinf namespace std::chrono_literals;
+using namespace std::chrono_literals;
 
 static atomic<bool> g_running(true); //atomic is used to prevent concurrent access to a variable 
 
@@ -25,7 +25,7 @@ void signal_handler(int){
 // the OS sends signal like SIGINT and SIGTERM when the user press ctrl+c or the system kills the program, signal_handler makes the sure that the program is not shut down 
 // immediately and the exit is clean(i.e data is flushed properly)
 
-int main(int argc, char** argv){immediately
+int main(int argc, char** argv){
     if(argc<3){
         return 1;
     }
