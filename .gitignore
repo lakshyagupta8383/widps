@@ -1,0 +1,24 @@
+# VS Code settings
+.vscode/
+
+# Build files
+build/
+cmake-build*/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+
+# Binaries
+*.o
+*.a
+*.so
+*.exe
+sniffer
+
+# Logs
+*.log
+
+# OS crap
+.DS_Store
+Thumbs.db

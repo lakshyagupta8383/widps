@@ -2,7 +2,8 @@
 #include <string>
 using namespace std;
 
-class HttpClient {
+class HttpClient
+{
 public:
     HttpClient(const string &url);
     bool postJson(const string &json);
