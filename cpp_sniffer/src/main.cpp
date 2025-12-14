@@ -32,8 +32,20 @@ int main(int argc, char **argv)
     {
         return 1;
     }
+
     string csvPath = argv[1];
     string endpoint = argv[2];
+
+    // environment variable to control whether existing CSV content should be read once
+    bool readExisting = false;
+    const char *envReadExisting = getenv("READ_EXISTING");
+    if (envReadExisting && string(envReadExisting) == "1")
+    {
+        readExisting = true;
+    }
+
+    cerr << "[sniffer] startup mode: "
+         << (readExisting ? "READ_EXISTING" : "LIVE_ONLY") << "\n";
 
     CsvParser parser;                // instance for parser
     EventBuilder builder;            // instance for builer(json)
@@ -51,9 +63,15 @@ int main(int argc, char **argv)
     {
         if (file.is_open())
             file.close(); // closes the old file (defind above ifstream file)
+
         file.open(csvPath, ios::in);
         if (!file.is_open())
+        {
+            cerr << "[sniffer] ERROR: failed to open CSV file: "
+                 << csvPath << endl;
             return false;
+        }
+
         if (seekEnd)
         {
             file.seekg(0, ios::end); // if file is already filled with prev content, we are going to ignore that content
@@ -61,17 +79,53 @@ int main(int argc, char **argv)
         }
         else
         {
-            file.seekg(0, ios::beg);
+            file.seekg(0, ios::beg); // used when we want to read the existing file from start
             lastPos = file.tellg();
         }
         return true;
     };
 
-    if (!openFile(true))
-    { // checks if the openFile returns true and the the file is open
+    // initial file open depends on startup mode
+    if (!openFile(!readExisting))
+    {
         error_code ec(errno, generic_category());
         cerr << "Failed to open CSV file '" << csvPath << "': " << ec.message() << "\n";
         return 2;
+    }
+
+    // if READ_EXISTING is enabled, read the entire CSV once before entering live tail mode
+    if (readExisting)
+    {
+        cerr << "[sniffer] reading existing CSV once\n";
+
+        file.clear();
+        file.seekg(0, ios::beg);
+
+        string line;
+        while (getline(file, line))
+        {
+            cerr << "[debug] raw line: " << line << "\n";
+
+            if (line.empty())
+                continue;
+
+            ProbeEntry entry;
+            if (!parser.parseLine(line, entry))
+            {
+                cerr << "Parser rejected line: " << line << "\n";
+                continue;
+            }
+
+            string json = builder.buildJson(entry); // conversion of struct to json
+            httpClient.postJson(json);               // sending parsed data to backend
+        }
+
+        // after batch read, move file pointer to end so live tailing can start
+        file.clear();
+        file.seekg(0, ios::end);
+        lastPos = file.tellg();
+
+        cerr << "[sniffer] finished batch read, switching to live tail mode\n";
     }
 
     const auto pollInterval = 500ms;
@@ -90,6 +144,7 @@ int main(int argc, char **argv)
                 continue;
             }
         }
+
         file.clear(); // if we re-open a file in case of error, it is neccessary to clear up the prev error flags
         file.seekg(0, ios::end);
         streampos endPos = file.tellg();
@@ -117,23 +172,30 @@ int main(int argc, char **argv)
             while (getline(file, line))
             {
                 lastPos = file.tellg();
+                cerr << "[debug] raw line: " << line << "\n";
+
                 if (line.empty())
                     continue;
+
                 ProbeEntry entry;
                 if (!parser.parseLine(line, entry))
                 {                                                     // parse the csv line into a probe struct
                     cerr << "Parser rejected line: " << line << "\n"; // checks for error
                     continue;
                 }
+
                 string json = builder.buildJson(entry); // conversion of struct to json
                 bool ok = httpClient.postJson(json);    // checks if the conversion was successful or not
+
                 if (!ok)
                 { // incase of unsuccessful conversion, the struct is pushed into the retryQueue
                     retryQueue.push_back(json);
-                    cerr << "POST failed, queued for retry. Queue size: " << retryQueue.size() << "\n";
+                    cerr << "POST failed, queued for retry. Queue size: "
+                         << retryQueue.size() << "\n";
                 }
             }
         }
+
         // previous failed conversion are retried after every line is read
         if (!retryQueue.empty())
         {
@@ -148,23 +210,31 @@ int main(int argc, char **argv)
                 {
                     ++it; // for unsuccessful retries, the struct are held in the queue
                 }
+
                 if (!g_running.load())
                     break; // incase of termination
             }
+
             if (!retryQueue.empty())
             {
-                cerr << "Retry queue size after attempt: " << retryQueue.size() << "\n"; // prints the number of remaining structs
+                cerr << "Retry queue size after attempt: "
+                     << retryQueue.size() << "\n"; // prints the number of remaining structs
             }
         }
 
         if (loopCounter % 120 == 0)
         {
-            cerr << "Heartbeat: running. Retry queue size: " << retryQueue.size() << "\n";
+            cerr << "Heartbeat: running. Retry queue size: "
+                 << retryQueue.size() << "\n";
         } // after 120 loops(approx 1 min) a message is printed that the sniffer is still alive and the number of struct left
+
         this_thread::sleep_for(pollInterval); // after on cycle is ended, the sniffer paused for 500ms to prevent 100% CPU usage
     }
+
     // exactly the part for which we used the signal_handler so that the unsuccessful conversions get one more chance before the system shuts down
-    cerr << "Shutting down, attempting to flush " << retryQueue.size() << " queued events\n";
+    cerr << "Shutting down, attempting to flush "
+         << retryQueue.size() << " queued events\n";
+
     for (const auto &j : retryQueue)
     {
         bool ok = httpClient.postJson(j);

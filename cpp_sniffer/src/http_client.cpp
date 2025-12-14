@@ -1,12 +1,13 @@
 #include "http_client.hpp"
 #include <curl/curl.h>
-
+#include <iostream>
 using namespace std;
 
 HttpClient::HttpClient(const string &url) : endpoint(url) {} //saves the backend API endpoint
 
 bool HttpClient::postJson(const string &json)
 {
+    cerr<<json<<endl;
     CURL *c = curl_easy_init(); //initialize the curl object
     if (!c) return false;
     struct curl_slist *h = nullptr;
