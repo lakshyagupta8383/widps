@@ -102,6 +102,7 @@ int main(int argc, char **argv)
         file.seekg(0, ios::beg);
 
         string line;
+        streampos newPos = lastPos;
         while (getline(file, line))
         {
             cerr << "[debug] raw line: " << line << "\n";
@@ -168,7 +169,10 @@ int main(int argc, char **argv)
         { // reading the new lines
             file.clear();
             file.seekg(lastPos);
+
             string line;
+            streampos newPos = lastPos;
+
             while (getline(file, line))
             {
                 lastPos = file.tellg();
