@@ -1,8 +1,10 @@
 #listens for and api request at route /ingest      
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException
 from ingest.validator import validate
+from runtime import WIDPSRuntime
 
 app = FastAPI()
+runtime = WIDPSRuntime()  # single process-wide instance
 
 @app.post("/ingest")
 async def ingest(record: dict):
@@ -10,6 +12,9 @@ async def ingest(record: dict):
         return {"status": "rejected"}
 
     #next step: forward to state manager
-    print("INGESTED:", record)
+    try:
+        runtime.process_ingest_record(record)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
     return {"status": "ok"}
