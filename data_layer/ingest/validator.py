@@ -1,17 +1,15 @@
-
 REQUIRED_FIELDS = {
-    "ap": ["bssid", "timestamp"], #bssid use used to detect the uniqueness of a device and timestamp is used to build events.
-    "client": ["station", "timestamp"] # similiarly station mac use used to detect the uniqueness of a device and timestamp is used to build events.
+    "ap": ["mac", "timestamp"],
+    "station": ["mac", "timestamp"]
 }
 
-def validate(record):
-    #returns True if record is valid enough to process.
+def validate(record: dict) -> bool:
     rtype = record.get("type")
     if rtype not in REQUIRED_FIELDS:
         return False
 
     for field in REQUIRED_FIELDS[rtype]:
-        if field not in record:
+        if field not in record or record[field] is None:
             return False
 
     return True

@@ -238,7 +238,19 @@ bool CsvParser::parseStation(const vector<string> &p, ProbeEntry &out)
         parseTimestamp(p[iLast], ts); // parsing timestamp if valid
     out.timestamp = ts;
 
-    out.assoc_bssid = (iBssid >= 0 && iBssid < (int)p.size()) ? p[iBssid] : string(); // station may have assoc bssid
+    if (iBssid >= 0 && iBssid < (int)p.size())
+    {
+        string b = p[iBssid];
+        if (b == "(not associated)" || b.empty())
+            out.assoc_bssid.clear(); // becomes null in JSON
+        else
+            out.assoc_bssid = b;
+    }
+    else
+    {
+        out.assoc_bssid.clear();
+    }
+    // station may have assoc bssid
 
     out.channel = 0; // station does not use channel
     out.has_channel = false;
