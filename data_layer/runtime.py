@@ -39,19 +39,10 @@ class WIDPSRuntime:
         #Take immutable snapshot
         snapshot = self.state.snapshot()
 
-        #Run detectors (atomic events)
-        events = self.event_engine.process(snapshot)
-
-        # Correlate events (behavior patterns)
-        for event in events:
-            alerts = self.correlation_engine.process(event)
-
-            #Score correlated alerts
-            for alert in alerts:
-                scored_alert = self.alert_scorer.score(alert)
-
-                # Output (temporary)
-                self.emit(scored_alert)
+        #Run detectors->correlators->scorer (atomic events)
+        scored_alerts = self.event_engine.process(snapshot)
+        for scored_alert in scored_alerts:
+            self.emit(scored_alert)
 
     def emit(self, scored_alert: dict):
         """
