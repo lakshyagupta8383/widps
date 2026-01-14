@@ -31,7 +31,7 @@ class WIDPSRuntime:
         """
 
         #Update state
-        self.state.update_from_ingest(record)
+        self.state.update(record)
 
         #Expire old entries
         self.state.expire()

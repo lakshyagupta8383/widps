@@ -10,9 +10,9 @@ def detect_evil_twins(prev, curr):
     ssid_map = {}
 
     # Group APs by SSID
-    for ap in curr.aps.values():
-        if ap.ssid:
-            ssid_map.setdefault(ap.ssid, []).append(ap)
+    for ap in curr["aps"].values():
+        if ap["ssid"]:
+            ssid_map.setdefault(ap["ssid"], []).append(ap)
 
     # Look for multiple APs using the same SSID
     for ssid, aps in ssid_map.items():
@@ -20,16 +20,16 @@ def detect_evil_twins(prev, curr):
             continue
 
         for ap in aps:
-            if ap.signal is not None and ap.signal >= SIGNAL_THRESHOLD:
+            if ap["signal"] is not None and ap["signal"] >= SIGNAL_THRESHOLD:
                 events.append(
                     Event(
                         type=EventType.EVIL_TWIN_SUSPECT,
                         timestamp=time(),
                         payload={
                             "ssid": ssid,
-                            "bssid": ap.bssid,
-                            "signal": ap.signal,
-                            "channel": ap.channel,
+                            "bssid": ap["bssid"],
+                            "signal": ap["signal"],
+                            "channel": ap["channel"],
                         },
                     )
                 )

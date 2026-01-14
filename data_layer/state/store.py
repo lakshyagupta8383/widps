@@ -1,22 +1,26 @@
-import time #for expiry logic
-import threading 
+import time  # for expiry logic
+import threading
+
 from state.models import APState, ClientState
-#time is seconds
+
+# time is seconds
 AP_EXPIRY = 10
 CLIENT_EXPIRY = 10
 
-class StateStore: #one instance=one live memory store
-    def __init__(self): # self being the current object
+
+class StateStore:  # one instance = one live memory store
+    def __init__(self):  # self being the current object
         self.aps = {}
         self.clients = {}
-        self.lock = threading.Lock() #to make sure mutual exclusion
+        self.lock = threading.Lock()  # to make sure mutual exclusion
 
-    def update(self, record: dict): #the only public method, acts as an entry point
-        #checks wheather the record is an ap or client
-        rtype = record["type"] 
+    def update(self, record: dict):  # the only public method, acts as an entry point
+        # checks wheather the record is an ap or client
+        rtype = record["type"]
         ts = record["timestamp"]
 
-        #with the lock on slef being enabled(so that there is mutual exclusion), the function acc to the record type is called
+        # with the lock on self being enabled (so that there is mutual exclusion),
+        # the function acc to the record type is called
         with self.lock:
             if rtype == "ap":
                 self._update_ap(record, ts)
@@ -24,10 +28,10 @@ class StateStore: #one instance=one live memory store
                 self._update_client(record, ts)
 
     def _update_ap(self, r, ts):
-        bssid = r["bssid"] #extracts the bssid(unique parameter) from the record 
-        ap = self.aps.get(bssid) #checks if the ap already exists in the state
+        bssid = r["bssid"]  # extracts the bssid (unique parameter) from the record
+        ap = self.aps.get(bssid)  # checks if the ap already exists in the state
 
-        if not ap: #for new ap
+        if not ap:  # for new ap
             ap = APState(
                 bssid=bssid,
                 ssid=r.get("ssid"),
@@ -37,22 +41,23 @@ class StateStore: #one instance=one live memory store
                 last_seen=ts
             )
             self.aps[bssid] = ap
-        else: #if ap already exists, the state updates its ssid, channel, signal, privacy, last_seen
+        else:  # if ap already exists, update its fields
             ap.ssid = r.get("ssid", ap.ssid)
             ap.channel = r.get("channel", ap.channel)
             ap.signal = r.get("signal", ap.signal)
             ap.privacy = r.get("privacy", ap.privacy)
             ap.last_seen = ts
 
-        if ap.signal is not None: #makes sure none is not appened in signal_history
-            ap.signal_history.append(ap.signal) #appends the signal value
-            ap.signal_history = ap.signal_history[-20:] #keeps track of last 20 signal values
+        # makes sure None is not appended in signal_history
+        if ap.signal is not None:
+            ap.signal_history.append(ap.signal)  # appends the signal value
+            ap.signal_history = ap.signal_history[-20:]  # keeps last 20 values
 
     def _update_client(self, r, ts):
-        station = r["station"] #extracts the station(unique parameter) from the record 
-        client = self.clients.get(station) #checks if the client already exists in the state
+        station = r["station"]  # extracts the station (unique parameter)
+        client = self.clients.get(station)  # checks if client already exists
 
-        if not client: #for new client
+        if not client:  # for new client
             client = ClientState(
                 station=station,
                 bssid=r.get("bssid"),
@@ -61,32 +66,61 @@ class StateStore: #one instance=one live memory store
                 last_seen=ts
             )
             self.clients[station] = client
-        else: #if client already exists, the state updates its bssid, no of frames, signal, privacy, last_seen
+        else:  # if client already exists, update fields
             client.bssid = r.get("bssid", client.bssid)
             client.signal = r.get("signal", client.signal)
             client.frames += r.get("frames", 0)
             client.last_seen = ts
 
-    def expire(self): # return expires aps and client
-        now = time.time() #current time
-        #initializing empty list for expired aps and client
-        expired_aps = [] 
+    def expire(self):  # return expired aps and clients
+        now = time.time()  # current time
+
+        # initializing empty lists for expired aps and clients
+        expired_aps = []
         expired_clients = []
 
-        with self.lock: #making sure the the thread is locked 
-            #checking and deleting the expired aps
+        with self.lock:  # making sure the thread is locked
+            # checking and deleting expired aps
             for bssid, ap in list(self.aps.items()):
                 if now - ap.last_seen > AP_EXPIRY:
                     expired_aps.append(ap)
                     del self.aps[bssid]
 
-            #checking and deleting the expired client
+            # checking and deleting expired clients
             for station, client in list(self.clients.items()):
                 if now - client.last_seen > CLIENT_EXPIRY:
                     expired_clients.append(client)
                     del self.clients[station]
 
         return expired_aps, expired_clients
+
+    def snapshot(self):
+        # returns a read-only JSON-safe snapshot of current state
+        with self.lock:
+            return {
+                "aps": {
+                    bssid: {
+                        "bssid": ap.bssid,
+                        "ssid": ap.ssid,
+                        "channel": ap.channel,
+                        "signal": ap.signal,
+                        "privacy": ap.privacy,
+                        "last_seen": ap.last_seen,
+                        "signal_history": list(ap.signal_history),
+                    }
+                    for bssid, ap in self.aps.items()
+                },
+                "clients": {
+                    station: {
+                        "station": client.station,
+                        "bssid": client.bssid,
+                        "signal": client.signal,
+                        "frames": client.frames,
+                        "last_seen": client.last_seen,
+                    }
+                    for station, client in self.clients.items()
+                }
+            }
 
 
 state_store = StateStore()
