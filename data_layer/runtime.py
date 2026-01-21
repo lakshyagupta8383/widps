@@ -10,11 +10,13 @@ No decisions are made here.
 This is the execution backbone.
 """
 
-from state.store import StateStore
+import time
 
+from state.store import StateStore
 from events.engine import EventEngine
-from events.correlation.engine import CorrelationEngine
-from events.scoring.scorer import AlertScorer
+
+from output.telemetry import build_telemetry_message
+from output.broadcaster import broadcaster
 
 
 class WIDPSRuntime:
@@ -22,41 +24,39 @@ class WIDPSRuntime:
         # Core components
         self.state = StateStore()
         self.event_engine = EventEngine()
-        self.correlation_engine = CorrelationEngine()
-        self.alert_scorer = AlertScorer()
 
-    def process_ingest_record(self, record: dict):
+    async def process_ingest_record(self, record: dict):
         """
         Called for every ingested JSON record.
         """
 
-        #Update state
+        # Update state
         self.state.update(record)
 
-        #Expire old entries
+        # Expire old entries
         self.state.expire()
 
-        #Take immutable snapshot
+        # Take immutable snapshot
         snapshot = self.state.snapshot()
 
-        #Run detectors->correlators->scorer (atomic events)
+        # TELEMETRY (always emitted)
+        telemetry_msg = build_telemetry_message(snapshot)
+        await broadcaster.broadcast(telemetry_msg)
+
+        # ALERTS (conditional)
         scored_alerts = self.event_engine.process(snapshot)
         for scored_alert in scored_alerts:
-            self.emit(scored_alert)
+            await self.emit(scored_alert)
 
-    def emit(self, scored_alert: dict):
-        """
-        Temporary sink.
-        Later replaced by:
-        - WebSocket
-        - DB
-        - Alert manager
-        """
-        print("\n ALERT")
-        print(f"Type      : {scored_alert['type']}")
-        print(f"Severity  : {scored_alert['severity']}")
-        print(f"Confidence: {scored_alert['confidence']}%")
-        print(f"Payload   : {scored_alert['payload']}")
-        print("-" * 40)
-
-
+    async def emit(self, scored_alert: dict):
+        message = {
+            "type": "alert",
+            "payload": {
+                "alert_type": scored_alert["type"],
+                "severity": scored_alert["severity"],
+                "confidence": scored_alert["confidence"],
+                "data": scored_alert["payload"],
+                "timestamp": int(time.time())
+            }
+        }
+        await broadcaster.broadcast(message)
