@@ -4,28 +4,36 @@ import asyncio
 
 class WebSocketBroadcaster:
     def __init__(self):
-        self.clients: Set[WebSocket] = set() #clients are all active webSockets connections
-        self.lock = asyncio.Lock() #prevents race conditions 
+        self.clients: Set[WebSocket] = set()  # clients are all active WebSocket connections
+        self.lock = asyncio.Lock()  # prevents race conditions
 
-    async def connect(self, ws: WebSocket): #called when frontend connects 
-        await ws.accept() #webSocket handshake 
-        async with self.lock: #thread-safe client addition 
+    async def connect(self, ws: WebSocket):  # called when frontend connects
+        await ws.accept()  # WebSocket handshake
+        async with self.lock:  # thread-safe client addition
             self.clients.add(ws)
 
-    async def disconnect(self, ws: WebSocket): #called when client disconnects.
-        async with self.lock:#thread-safe client removal
+    async def disconnect(self, ws: WebSocket):  # called when client disconnects
+        async with self.lock:  # thread-safe client removal
             self.clients.discard(ws)
 
-    async def broadcast(self, message: dict): #sends json messages to clients 
+    async def broadcast(self, message: dict):  # sends json messages to clients
+        # take a snapshot of current clients so we don't hold the lock during I/O
         async with self.lock:
-            dead = set() #initializes set to track broken connections
-            for ws in self.clients:
-                try:
-                    await ws.send_json(message) #sends json to frontend
-                except Exception:
-                    dead.add(ws) #marks dead sockets
+            clients = list(self.clients)
 
-            for ws in dead: # discard dead sockets
-                self.clients.discard(ws) 
+        dead = set()  # initializes set to track broken connections
 
+        for ws in clients:
+            try:
+                await ws.send_json(message)  # sends json to frontend
+            except Exception:
+                dead.add(ws)  # marks dead sockets
+
+        # discard dead sockets
+        if dead:
+            async with self.lock:
+                for ws in dead:
+                    self.clients.discard(ws)
+
+# singleton broadcaster instance
 broadcaster = WebSocketBroadcaster()

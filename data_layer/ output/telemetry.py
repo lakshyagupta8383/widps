@@ -2,14 +2,10 @@ import time
 import asyncio
 from collections import defaultdict
 
-from output.broadcaster import broadcaster
+from data_layer.output.broadcaster import broadcaster
 
 
 class TelemetryPublisher:
-    """
-    Periodically emits dashboard-ready telemetry over WebSocket.
-    """
-
     def __init__(self, runtime, interval: int = 1):
         self.runtime = runtime
         self.interval = interval
@@ -17,10 +13,10 @@ class TelemetryPublisher:
 
     async def run(self):
         while True:
-            snapshot = self.runtime.state.snapshot()
+            snapshot = self.runtime.state.snapshot() #snapshot of current state
 
             # ---- channel congestion ----
-            channel_counts = defaultdict(int)
+            channel_counts = defaultdict(int) #hashmap for channels
             ap_signal = {}
 
             for ap in snapshot["aps"].values():
@@ -28,10 +24,10 @@ class TelemetryPublisher:
                 sig = ap.get("signal")
 
                 if ch is not None:
-                    channel_counts[str(ch)] += 1
+                    channel_counts[str(ch)] += 1 
 
                 if sig is not None:
-                    ap_signal[ap["bssid"]] = sig
+                    ap_signal[ap["bssid"]] = sig #signal of a particular ap
 
             message = {
                 "type": "telemetry",
