@@ -2,7 +2,7 @@ import time
 import asyncio
 from collections import defaultdict
 
-from data_layer.output.broadcaster import broadcaster
+from .broadcaster import broadcaster
 
 
 class TelemetryPublisher:
