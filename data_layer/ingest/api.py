@@ -3,10 +3,10 @@ from fastapi import FastAPI, HTTPException
 from ingest.validator import validate
 from runtime import WIDPSRuntime
 
-app = FastAPI()
-runtime = WIDPSRuntime()  # single process-wide instance
+router = APIRouter()
+runtime = WIDPSRuntime()
 
-@app.post("/ingest")
+@router.post("/ingest")
 async def ingest(record: dict):
     if not validate(record):  #validates the json
         return {"status": "rejected"}
@@ -18,3 +18,5 @@ async def ingest(record: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
     return {"status": "ok"}
+
+
