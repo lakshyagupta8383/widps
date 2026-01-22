@@ -9,6 +9,8 @@ cmake-build*/
 CMakeCache.txt
 CMakeFiles/
 
+#airodump files
+data/
 # Binaries
 *.o
 *.a

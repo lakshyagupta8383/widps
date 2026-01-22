@@ -1,5 +1,5 @@
 from time import time
-from events.types import Event, EventType
+from ..types import Event, EventType
 
 # compares current snapshot with previous on,by running a loop on the curr snapshot and appends an event when new bssid is discovered
 def detect_new_aps(prev, curr):

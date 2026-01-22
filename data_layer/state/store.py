@@ -1,7 +1,7 @@
 import time  # for expiry logic
 import threading
 
-from state.models import APState, ClientState
+from .models import APState, ClientState
 
 # time is seconds
 AP_EXPIRY = 10
@@ -16,6 +16,7 @@ class StateStore:  # one instance = one live memory store
 
     def update(self, record: dict):  # the only public method, acts as an entry point
         # checks wheather the record is an ap or client
+        print("[STATE UPDATE] incoming record:", record)
         rtype = record["type"]
         ts = record["timestamp"]
 
@@ -23,8 +24,11 @@ class StateStore:  # one instance = one live memory store
         # the function acc to the record type is called
         with self.lock:
             if rtype == "ap":
+                record["bssid"] = record.get("bssid") or record.get("mac")
                 self._update_ap(record, ts)
             elif rtype == "client":
+                record["station"] = record.get("station") or record.get("mac")
+                record["bssid"] = record.get("bssid") or record.get("assoc_bssid")
                 self._update_client(record, ts)
 
     def _update_ap(self, r, ts):

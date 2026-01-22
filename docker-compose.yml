@@ -1,9 +1,8 @@
-version: "3.9"
-
 services:
   data-layer:
     build:
-      context: ./data_layer
+      context: .
+      dockerfile: data_layer/Dockerfile
     container_name: widps-data-layer
     ports:
       - "8000:8000"

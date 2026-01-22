@@ -1,5 +1,5 @@
 from enum import Enum
-from events.types import Event, EventType
+from ..types import Event, EventType
 
 
 class Severity(str, Enum):

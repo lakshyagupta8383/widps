@@ -1,5 +1,5 @@
 from time import time
-from events.types import Event, EventType
+from ..types import Event, EventType
 
 SIGNAL_THRESHOLD = -60  # strong signal = nearby AP
 

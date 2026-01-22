@@ -1,6 +1,6 @@
 import time
 from collections import deque
-from events.types import Event, EventType
+from ..types import Event, EventType
 
 WINDOW_SECONDS = 30  #sliding window size (to take care of events captured in last 30s)
 

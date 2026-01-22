@@ -12,6 +12,7 @@ class TelemetryPublisher:
         self.start_time = time.time()
 
     async def run(self):
+        print("[telemetry] TelemetryPublisher.run() started")
         while True:
             snapshot = self.runtime.state.snapshot() #snapshot of current state
 
@@ -46,6 +47,14 @@ class TelemetryPublisher:
                     "timestamp": int(time.time())
                 }
             }
-
+            # TEMP DEBUG 
+            print(
+                "[telemetry] aps:",
+                len(snapshot["aps"]),
+                "clients:",
+                len(snapshot["clients"]),
+                "channels:",
+                dict(channel_counts)
+            )
             await broadcaster.broadcast(message)
             await asyncio.sleep(self.interval)

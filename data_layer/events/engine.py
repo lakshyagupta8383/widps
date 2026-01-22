@@ -1,9 +1,9 @@
-from events.detectors.ap_detectors import detect_new_aps, detect_gone_aps
-from events.detectors.client_detectors import detect_clients
-from events.detectors.evil_twin import detect_evil_twins
+from .detectors.ap_detectors import detect_new_aps, detect_gone_aps
+from .detectors.client_detectors import detect_clients
+from .detectors.evil_twin import detect_evil_twins
 
-from events.correlation.engine import CorrelationEngine
-from events.scoring.scorer import AlertScorer
+from .correlation.engine import CorrelationEngine
+from .scoring.scorer import AlertScorer
 
 
 class EventEngine:

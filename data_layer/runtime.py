@@ -12,14 +12,10 @@ This is the execution backbone.
 
 import time
 
-from state.store import StateStore
-from events.engine import EventEngine
+from data_layer.state.store import StateStore
+from data_layer.events.engine import EventEngine
 
-from .output.telemetry import TelemetryPublisher
-
-from .output.broadcaster import broadcaster
-
-
+from data_layer.output.broadcaster import broadcaster
 
 class WIDPSRuntime:
     def __init__(self):
@@ -34,16 +30,17 @@ class WIDPSRuntime:
 
         # Update state
         self.state.update(record)
-
+        print(
+            "[runtime] state sizes:",
+            len(self.state.aps),
+            len(self.state.clients),
+            flush=True
+        )
         # Expire old entries
         self.state.expire()
 
         # Take immutable snapshot
         snapshot = self.state.snapshot()
-
-        # TELEMETRY (always emitted)
-        telemetry_msg = build_telemetry_message(snapshot)
-        await broadcaster.broadcast(telemetry_msg)
 
         # ALERTS (conditional)
         scored_alerts = self.event_engine.process(snapshot)
