@@ -1,6 +1,6 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from data_layer.output.broadcaster import broadcaster
+from .broadcaster import broadcaster
 
 router = APIRouter()
 
