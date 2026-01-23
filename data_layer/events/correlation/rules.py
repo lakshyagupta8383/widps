@@ -1,5 +1,5 @@
 import time
-from events.types import Event, EventType
+from ..types import Event, EventType
 
 
 def detect_evil_twin_confirmed(events):

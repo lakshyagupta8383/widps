@@ -1,6 +1,7 @@
 import time
 from collections import deque
-from ..types import Event, EventType
+from .rules import detect_mass_deauth, detect_evil_twin_confirmed, detect_ap_flapping
+from ..types import EventType
 
 WINDOW_SECONDS = 30  #sliding window size (to take care of events captured in last 30s)
 
@@ -17,8 +18,8 @@ class CorrelationEngine:
             self.window.popleft()
 
         alerts = []
-        alerts.extend(self._detect_evil_twin_confirmed()) #checks for evil_twins
-        alerts.extend(self._detect_mass_deauth()) #checks for mass deauths
-        alerts.extend(self._detect_ap_flapping())#checks for ap flappping(AP_GONE->NEW_AP->AP_GONE)
+        alerts.extend(detect_evil_twin_confirmed(self.window)) #checks for evil_twins
+        alerts.extend(detect_mass_deauth(self.window)) #checks for mass deauths
+        alerts.extend(detect_ap_flapping(self.window))#checks for ap flappping(AP_GONE->NEW_AP->AP_GONE)
 
         return alerts
