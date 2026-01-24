@@ -1,27 +1,23 @@
-export default function RightPanel({ messages = [] }) {
-  const alerts = messages.filter(m => m.type === "alert");
-
+export default function RightPanel({ alerts = [] }) {
   return (
-    <div className="h-full p-4 space-y-4 overflow-y-auto">
-      <div className="text-sm font-semibold text-zinc-300">
-        Alerts
-      </div>
+    <div className="h-full p-4 space-y-3 overflow-y-auto">
+      <div className="text-sm font-semibold">Alerts</div>
 
-      <div className="space-y-2">
-        {alerts.slice(-10).reverse().map((a, i) => (
-          <div
-            key={i}
-            className="p-2 rounded bg-zinc-900 border border-zinc-800"
-          >
-            <div className="text-sm font-medium">
-              {a.payload.alert_type}
-            </div>
-            <div className="text-xs text-zinc-400">
-              {a.payload.severity} · {Math.round(a.payload.confidence * 100)}%
-            </div>
+      {alerts.slice().reverse().map((a, i) => (
+        <div
+          key={i}
+          className={`p-2 rounded border text-sm ${
+            a.payload.severity === "high"
+              ? "bg-red-950 border-red-700"
+              : "bg-zinc-900 border-zinc-800"
+          }`}
+        >
+          <div className="font-medium">{a.payload.alert_type}</div>
+          <div className="text-xs text-zinc-400">
+            {Math.round(a.payload.confidence * 100)}% confidence
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
     </div>
   );
 }

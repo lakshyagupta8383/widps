@@ -4,8 +4,8 @@ import threading
 from .models import APState, ClientState
 
 # time is seconds
-AP_EXPIRY = 10
-CLIENT_EXPIRY = 10
+AP_EXPIRY = 30
+CLIENT_EXPIRY = 20
 
 
 class StateStore:  # one instance = one live memory store
@@ -18,7 +18,7 @@ class StateStore:  # one instance = one live memory store
         # checks wheather the record is an ap or client
         print("[STATE UPDATE] incoming record:", record)
         rtype = record["type"]
-        ts = record["timestamp"]
+        ts = time.time()
 
         # with the lock on self being enabled (so that there is mutual exclusion),
         # the function acc to the record type is called
