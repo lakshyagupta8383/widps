@@ -14,21 +14,45 @@ class TelemetryPublisher:
     async def run(self):
         print("[telemetry] TelemetryPublisher.run() started")
         while True:
-            snapshot = self.runtime.state.snapshot() #snapshot of current state
+            snapshot = self.runtime.state.snapshot()  # snapshot of current state
 
             # ---- channel congestion ----
-            channel_counts = defaultdict(int) #hashmap for channels
+            channel_counts = defaultdict(int)  # hashmap for channels
             ap_signal = {}
+
+            # ---- ssid & stability ----
+            ssid_counts = defaultdict(int)
+            stable_aps = 0
+            transient_aps = 0
 
             for ap in snapshot["aps"].values():
                 ch = ap.get("channel")
                 sig = ap.get("signal")
+                ssid = ap.get("ssid")
 
+                # channel stats
                 if ch is not None:
-                    channel_counts[str(ch)] += 1 
+                    channel_counts[str(ch)] += 1
 
                 if sig is not None:
-                    ap_signal[ap["bssid"]] = sig #signal of a particular ap
+                    ap_signal[ap["bssid"]] = sig  # signal of a particular ap
+
+                # ssid stats
+                if ssid:
+                    ssid_counts[ssid] += 1
+
+                # stability stats
+                if ap.get("stability") == "STABLE":
+                    stable_aps += 1
+                else:
+                    transient_aps += 1
+
+            # ---- top ssids (top 5) ----
+            top_ssids = sorted(
+                ssid_counts.items(),
+                key=lambda x: x[1],
+                reverse=True
+            )[:5]
 
             message = {
                 "type": "telemetry",
@@ -36,6 +60,8 @@ class TelemetryPublisher:
                     "summary": {
                         "ap_count": len(snapshot["aps"]),
                         "client_count": len(snapshot["clients"]),
+                        "stable_aps": stable_aps,
+                        "transient_aps": transient_aps,
                         "uptime_sec": int(time.time() - self.start_time),
                     },
 
@@ -44,17 +70,25 @@ class TelemetryPublisher:
                         "ap_signal": ap_signal
                     },
 
+                    # NEW (safe additive field)
+                    "top_ssids": [
+                        {"ssid": ssid, "ap_count": count}
+                        for ssid, count in top_ssids
+                    ],
+
                     "timestamp": int(time.time())
                 }
             }
-            # TEMP DEBUG 
+
+            # TEMP DEBUG
             print(
-                "[telemetry] aps:",
-                len(snapshot["aps"]),
-                "clients:",
-                len(snapshot["clients"]),
-                "channels:",
-                dict(channel_counts)
+                "[telemetry]",
+                "aps:", len(snapshot["aps"]),
+                "clients:", len(snapshot["clients"]),
+                "stable:", stable_aps,
+                "transient:", transient_aps,
+                "top_ssids:", top_ssids
             )
+
             await broadcaster.broadcast(message)
             await asyncio.sleep(self.interval)

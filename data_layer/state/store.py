@@ -42,7 +42,8 @@ class StateStore:  # one instance = one live memory store
                 channel=r.get("channel"),
                 signal=r.get("signal"),
                 privacy=r.get("privacy"),
-                last_seen=ts
+                last_seen=ts,
+                first_seen=ts,  # NEW
             )
             self.aps[bssid] = ap
         else:  # if ap already exists, update its fields
@@ -52,10 +53,20 @@ class StateStore:  # one instance = one live memory store
             ap.privacy = r.get("privacy", ap.privacy)
             ap.last_seen = ts
 
+            # NEW: update identity counters
+            ap.seen_count += 1
+
         # makes sure None is not appended in signal_history
         if ap.signal is not None:
             ap.signal_history.append(ap.signal)  # appends the signal value
             ap.signal_history = ap.signal_history[-20:]  # keeps last 20 values
+
+        # NEW: stability & trust classification
+        if ap.seen_count >= 5 and (ts - ap.first_seen) > 15:
+            ap.stability = "STABLE"
+            ap.is_known = True
+        else:
+            ap.stability = "TRANSIENT"
 
     def _update_client(self, r, ts):
         station = r["station"]  # extracts the station (unique parameter)
@@ -67,7 +78,8 @@ class StateStore:  # one instance = one live memory store
                 bssid=r.get("bssid"),
                 signal=r.get("signal"),
                 frames=r.get("frames", 0),
-                last_seen=ts
+                last_seen=ts,
+                first_seen=ts,  # NEW
             )
             self.clients[station] = client
         else:  # if client already exists, update fields
@@ -110,6 +122,10 @@ class StateStore:  # one instance = one live memory store
                         "signal": ap.signal,
                         "privacy": ap.privacy,
                         "last_seen": ap.last_seen,
+                        "first_seen": ap.first_seen,     # NEW
+                        "seen_count": ap.seen_count,     # NEW
+                        "stability": ap.stability,       # NEW
+                        "is_known": ap.is_known,         # NEW
                         "signal_history": list(ap.signal_history),
                     }
                     for bssid, ap in self.aps.items()
@@ -121,6 +137,7 @@ class StateStore:  # one instance = one live memory store
                         "signal": client.signal,
                         "frames": client.frames,
                         "last_seen": client.last_seen,
+                        "first_seen": client.first_seen,  # NEW
                     }
                     for station, client in self.clients.items()
                 }
