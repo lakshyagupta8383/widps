@@ -1,12 +1,29 @@
-export default function LeftPanel({ telemetry }) {
-  const latest = telemetry.at(-1)?.payload?.summary;
-  if (!latest) return null;
+export default function LeftPanel({ summary }) {
+  if (!summary) return null;
 
   return (
-    <div className="p-4 space-y-3 text-sm text-zinc-300">
-      <div>APs: <b>{latest.ap_count}</b></div>
-      <div>Clients: <b>{latest.client_count}</b></div>
-      <div>Uptime: {Math.floor(latest.uptime_sec / 60)} min</div>
+    <div className="grid grid-cols-1 gap-4">
+      <div className="bg-zinc-900 rounded-xl p-4">
+        <h3 className="text-sm text-zinc-400">Access Points</h3>
+        <p className="text-3xl font-semibold">{summary.ap_count}</p>
+      </div>
+
+      <div className="bg-zinc-900 rounded-xl p-4">
+        <h3 className="text-sm text-zinc-400">Active Clients</h3>
+        <p className="text-3xl font-semibold">{summary.client_count}</p>
+      </div>
+
+      <div className="bg-zinc-900 rounded-xl p-4">
+        <h3 className="text-sm text-zinc-400 mb-2">AP Stability</h3>
+        <p className="text-lg">
+          <span className="text-green-400">{summary.stable_aps}</span>{" "}
+          <span className="text-zinc-500">|</span>{" "}
+          <span className="text-orange-400">
+            {summary.transient_aps}
+          </span>
+        </p>
+        <p className="text-xs text-zinc-500">Stable | Transient</p>
+      </div>
     </div>
   );
 }

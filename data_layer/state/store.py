@@ -4,8 +4,9 @@ import threading
 from .models import APState, ClientState
 
 # time is seconds
-AP_EXPIRY = 30
-CLIENT_EXPIRY = 20
+AP_EXPIRY = 300   # 5 minutes
+CLIENT_EXPIRY = 120
+
 
 
 class StateStore:  # one instance = one live memory store
@@ -87,6 +88,10 @@ class StateStore:  # one instance = one live memory store
             client.signal = r.get("signal", client.signal)
             client.frames += r.get("frames", 0)
             client.last_seen = ts
+        
+        bssid = r.get("bssid")
+        if bssid and bssid in self.aps:
+            self.aps[bssid].last_seen = ts
 
     def expire(self):  # return expired aps and clients
         now = time.time()  # current time

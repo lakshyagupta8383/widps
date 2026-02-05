@@ -1,9 +1,9 @@
-export default function Topbar({ connected }) {
+export default function Topbar({ connected, uptime }) {
   return (
-    <div className="h-12 px-4 flex items-center justify-between border-b border-zinc-800 bg-zinc-950">
-      <span className="font-semibold text-zinc-200">WIDPS</span>
-      <span className={connected ? "text-emerald-400" : "text-red-400"}>
-        {connected ? "Connected" : "Disconnected"}
+    <div className="flex justify-between items-center px-6 py-4 bg-zinc-900 rounded-xl">
+      <h1 className="text-xl font-semibold tracking-wide">WIDPS</h1>
+      <span className="text-sm text-zinc-400">
+        {connected ? "🟢 Connected" : "🔴 Disconnected"} · Uptime {uptime}s
       </span>
     </div>
   );
