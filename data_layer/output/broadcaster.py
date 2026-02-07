@@ -26,6 +26,7 @@ class WebSocketBroadcaster:
         for ws in clients:
             try:
                 await ws.send_json(message)  # sends json to frontend
+                print("WS SENT:", message)
             except Exception:
                 dead.add(ws)  # marks dead sockets
 
