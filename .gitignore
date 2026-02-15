@@ -24,3 +24,5 @@ sniffer
 # OS crap
 .DS_Store
 Thumbs.db
+
+.env

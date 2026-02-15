@@ -1,17 +1,20 @@
 export default function BottomPanel({ alerts }) {
+  const baseClasses =
+    "bg-zinc-900 rounded-xl p-4 min-h-48 flex flex-col";
+
   if (!alerts || alerts.length === 0) {
     return (
-      <div className="bg-zinc-900 rounded-xl p-4 text-center text-zinc-500 text-sm">
+      <div className={`${baseClasses} justify-center items-center text-zinc-500 text-sm`}>
         No active alerts
       </div>
     );
   }
 
   return (
-    <div className="bg-zinc-900 rounded-xl p-4">
+    <div className={baseClasses}>
       <h3 className="text-sm text-zinc-400 mb-3">Recent Alerts</h3>
 
-      <ul className="space-y-2 max-h-44 overflow-y-auto">
+      <ul className="space-y-2 max-h-44 overflow-y-auto flex-1">
         {alerts
           .slice()
           .reverse()

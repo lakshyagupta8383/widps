@@ -5,6 +5,7 @@ import LeftPanel from "./components/LeftPanel";
 import CenterPanel from "./components/CenterPanel";
 import RightPanel from "./components/RightPanel";
 import BottomPanel from "./components/BottomPanel";
+import APTable from "./components/APTable"
 import { useWS } from "./hooks/useWS";
 
 export default function DashboardPage() {
@@ -18,6 +19,7 @@ export default function DashboardPage() {
   const summary = lastTelemetry?.payload?.summary;
   const heatmap = lastTelemetry?.payload?.heatmap;
   const topSSIDs = lastTelemetry?.payload?.top_ssids;
+  const aps = lastTelemetry?.payload?.aps; 
 
   return (
     <div className="flex flex-col h-screen bg-black text-white">
@@ -31,9 +33,12 @@ export default function DashboardPage() {
           <LeftPanel summary={summary} />
         </div>
 
-        <div className="w-[55%] border-r border-zinc-800 p-4">
+        <div className="w-[55%] border-r border-zinc-800 p-4 flex flex-col gap-4">
           <CenterPanel heatmap={heatmap} />
+          <APTable aps={aps} />
+
         </div>
+
 
         <div className="w-[15%] p-4">
           <RightPanel ssids={topSSIDs} />

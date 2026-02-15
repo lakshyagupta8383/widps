@@ -76,6 +76,10 @@ class TelemetryPublisher:
                         for ssid, count in top_ssids
                     ],
 
+                    # ---- FULL SNAPSHOT DATA (for tables) ----
+                    "aps": list(snapshot["aps"].values()),
+                    "clients": list(snapshot["clients"].values()),
+
                     "timestamp": int(time.time())
                 }
             }
@@ -89,6 +93,7 @@ class TelemetryPublisher:
                 "transient:", transient_aps,
                 "top_ssids:", top_ssids
             )
+            print("TYPE OF APS:", type(snapshot["aps"]))
 
             await broadcaster.broadcast(message)
             await asyncio.sleep(self.interval)

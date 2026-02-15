@@ -58,76 +58,59 @@ int main(int argc, char **argv)
     signal(SIGINT, signal_handler);  // sends signal to signal_handler when the user presses ctrl+c
     signal(SIGTERM, signal_handler); // when the process is is killed by the system
 
-    // openFile() function is used to open up a file which may be required several times
-    auto openFile = [&](bool seekEnd) -> bool
+
+    // -----------------------------
+    // UPDATED PART: always open from beginning once
+    // -----------------------------
+    // earlier we were skipping directly to end in LIVE_ONLY mode,
+    // but that caused the header (BSSID / Station MAC) to be skipped,
+    // because parser depends on header to set currentSection and column indices
+
+    file.open(csvPath, ios::in);
+    if (!file.is_open())
     {
-        if (file.is_open())
-            file.close(); // closes the old file (defind above ifstream file)
-
-        file.open(csvPath, ios::in);
-        if (!file.is_open())
-        {
-            cerr << "[sniffer] ERROR: failed to open CSV file: "
-                 << csvPath << endl;
-            return false;
-        }
-
-        if (seekEnd)
-        {
-            file.seekg(0, ios::end); // if file is already filled with prev content, we are going to ignore that content
-            lastPos = file.tellg();
-        }
-        else
-        {
-            file.seekg(0, ios::beg); // used when we want to read the existing file from start
-            lastPos = file.tellg();
-        }
-        return true;
-    };
-
-    // initial file open depends on startup mode
-    if (!openFile(!readExisting))
-    {
-        error_code ec(errno, generic_category());
-        cerr << "Failed to open CSV file '" << csvPath << "': " << ec.message() << "\n";
+        cerr << "[sniffer] ERROR: failed to open CSV file: "
+             << csvPath << endl;
         return 2;
     }
 
-    // if READ_EXISTING is enabled, read the entire CSV once before entering live tail mode
-    if (readExisting)
+
+    // -----------------------------
+    // UPDATED PART: prime parser with header and section info
+    // -----------------------------
+    // even in LIVE_ONLY mode we must read the file once to initialize:
+    // - headerCols
+    // - colIndex
+    // - currentSection (AP_SECTION / STATION_SECTION)
+    // without this step, parser.parseLine() will reject all live lines
+
+    string line;
+    while (getline(file, line))
     {
-        cerr << "[sniffer] reading existing CSV once\n";
+        if (line.empty())
+            continue;
 
-        file.clear();
-        file.seekg(0, ios::beg);
+        ProbeEntry entry;
 
-        string line;
-        streampos newPos = lastPos;
-        while (getline(file, line))
+        // we call parseLine only to initialize header internally
+        // if READ_EXISTING=1 then we also send the events
+        if (parser.parseLine(line, entry))
         {
-            cerr << "[debug] raw line: " << line << "\n";
-
-            if (line.empty())
-                continue;
-
-            ProbeEntry entry;
-            if (!parser.parseLine(line, entry))
+            if (readExisting)
             {
-                cerr << "Parser rejected line: " << line << "\n";
-                continue;
+                string json = builder.buildJson(entry); // conversion of struct to json
+                httpClient.postJson(json);              // sending parsed data to backend
             }
-
-            string json = builder.buildJson(entry); // conversion of struct to json
-            httpClient.postJson(json);               // sending parsed data to backend
         }
-
-        // after batch read, move file pointer to end so live tailing can start
-        file.clear();
-        file.seekg(0, ios::end);
-        lastPos = file.tellg();
-
-        cerr << "[sniffer] finished batch read, switching to live tail mode\n";
     }
+
+    // after priming, move file pointer to end so live tailing can start
+    file.clear();
+    file.seekg(0, ios::end);
+    lastPos = file.tellg();
+
+    cerr << "[sniffer] parser initialized, switching to live tail mode\n";
+
 
     const auto pollInterval = 500ms;
     size_t loopCounter = 0;
@@ -138,15 +121,21 @@ int main(int argc, char **argv)
 
         if (!file.good())
         { // checks if the file is in "good state" i.e there are no errors
-            if (!openFile(true))
+            file.close();
+            file.open(csvPath, ios::in);
+
+            if (!file.is_open())
             {
                 cerr << "Reopen failed, will retry in 1s\n";
                 this_thread::sleep_for(1s);
                 continue;
             }
+
+            file.seekg(0, ios::end);
+            lastPos = file.tellg();
         }
 
-        file.clear(); // if we re-open a file in case of error, it is neccessary to clear up the prev error flags
+        file.clear(); // clear error flags before reading
         file.seekg(0, ios::end);
         streampos endPos = file.tellg();
 
@@ -154,15 +143,33 @@ int main(int argc, char **argv)
         // that they are no issues we check the endPos and lastPos
         if (endPos < lastPos)
         {
+            // UPDATED: on rotation we must reinitialize parser because header will be written again
             file.close();
-            if (!openFile(false))
+            file.open(csvPath, ios::in);
+
+            if (!file.is_open())
             {
                 cerr << "File rotated but reopen failed\n";
                 this_thread::sleep_for(1s);
                 continue;
             }
+
+            cerr << "Detected file rotation/truncate. Reinitializing parser.\n";
+
+            // reset parser by re-priming from start
+            while (getline(file, line))
+            {
+                if (line.empty())
+                    continue;
+
+                ProbeEntry dummy;
+                parser.parseLine(line, dummy); // sets header again
+            }
+
+            file.clear();
+            file.seekg(0, ios::end);
             lastPos = file.tellg();
-            cerr << "Detected file rotation/truncate. Reopened and reset position.\n";
+            continue;
         }
 
         if (endPos > lastPos)
@@ -170,21 +177,17 @@ int main(int argc, char **argv)
             file.clear();
             file.seekg(lastPos);
 
-            string line;
-            streampos newPos = lastPos;
-
             while (getline(file, line))
             {
                 lastPos = file.tellg();
-                cerr << "[debug] raw line: " << line << "\n";
 
                 if (line.empty())
                     continue;
 
                 ProbeEntry entry;
+
                 if (!parser.parseLine(line, entry))
                 {                                                     // parse the csv line into a probe struct
-                    cerr << "Parser rejected line: " << line << "\n"; // checks for error
                     continue;
                 }
 
@@ -194,8 +197,6 @@ int main(int argc, char **argv)
                 if (!ok)
                 { // incase of unsuccessful conversion, the struct is pushed into the retryQueue
                     retryQueue.push_back(json);
-                    cerr << "POST failed, queued for retry. Queue size: "
-                         << retryQueue.size() << "\n";
                 }
             }
         }
@@ -208,7 +209,7 @@ int main(int argc, char **argv)
                 bool ok = httpClient.postJson(*it); // recheck
                 if (ok)
                 {
-                    it = retryQueue.erase(it); // if the retry wass successful, the struct is removed
+                    it = retryQueue.erase(it); // if the retry was successful, the struct is removed
                 }
                 else
                 {
@@ -216,13 +217,7 @@ int main(int argc, char **argv)
                 }
 
                 if (!g_running.load())
-                    break; // incase of termination
-            }
-
-            if (!retryQueue.empty())
-            {
-                cerr << "Retry queue size after attempt: "
-                     << retryQueue.size() << "\n"; // prints the number of remaining structs
+                    break;
             }
         }
 
@@ -230,9 +225,9 @@ int main(int argc, char **argv)
         {
             cerr << "Heartbeat: running. Retry queue size: "
                  << retryQueue.size() << "\n";
-        } // after 120 loops(approx 1 min) a message is printed that the sniffer is still alive and the number of struct left
+        }
 
-        this_thread::sleep_for(pollInterval); // after on cycle is ended, the sniffer paused for 500ms to prevent 100% CPU usage
+        this_thread::sleep_for(pollInterval); // after one cycle is ended, the sniffer pauses for 500ms to prevent 100% CPU usage
     }
 
     // exactly the part for which we used the signal_handler so that the unsuccessful conversions get one more chance before the system shuts down
